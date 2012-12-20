@@ -1,0 +1,14 @@
+ebin/
+*/ebin/*.beam
+*/ebin/*.app
+deps/
+rel/
+.eunit
+erl_crash.dump
+*.o
+*.beam
+*.plt
+*~
+.#*
+#*
+*#

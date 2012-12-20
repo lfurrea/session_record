@@ -1,0 +1,12 @@
+{application, session_record,
+ [
+  {description, "Session recording and storage for FreeSWITCH"},
+  {vsn, "0.1.0"},
+  {registered, []},
+  {applications, [
+                  kernel,
+                  stdlib
+                 ]},
+  {mod, { session_record_app, []}},
+  {env, []}
+ ]}.
