@@ -8,5 +8,14 @@
                   stdlib
                  ]},
   {mod, { session_record_app, []}},
-  {env, []}
+  {env, [{db_options,  [
+			{adapter, pgsql},
+			{db_host, "10.254.253.1"},
+			{db_port, 5432},
+			{db_username, "postgres"},
+			{db_password, "155VA&gAS"},
+			{db_database, "fs_recordings"},
+			{cache_enable, false}
+		       ]}
+	]}
  ]}.

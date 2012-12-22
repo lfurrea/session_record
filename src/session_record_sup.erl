@@ -29,7 +29,9 @@ init([]) ->
 		  permanent, 2000, worker, [record_core]},
     EncodeSup = {encode_sup, {encode_sup, start_link, []}, 
 	      permanent, 2000, supervisor, [encode_sup]},
-    Children = [RecordCore, EncodeSup],
+    DBStoreSup = {db_store_sup, {db_store_sup, start_link, []}, 
+	      permanent, 2000, supervisor, [db_store_sup]},
+    Children = [RecordCore, EncodeSup, DBStoreSup],
     RestartStrategy = {one_for_one, 0 , 1},
     {ok, { RestartStrategy, Children }}.
 

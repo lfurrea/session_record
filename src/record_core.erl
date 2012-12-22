@@ -11,14 +11,11 @@
 -behaviour(gen_server).
 
 %% API
--export([start_link/0]).
+-export([start_link/0, get_recv_count/0, get_saved_count/0, stop/0]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
 	 terminate/2, code_change/3]).
-
-%% API calls
--export([get_count/0, stop/0]).
 
 -define(SERVER, ?MODULE). 
 
@@ -27,7 +24,8 @@
 
 -record(state, {limit = 2 :: integer(), 
 		retries = 3 :: integer(), 
-		received_count = 0 :: integer() ,
+		received_count = 0 :: integer(),
+		saved_count = 0 :: integer(),
 		connection :: pid(), 
 		channel :: pid()}).
 
@@ -47,14 +45,25 @@ start_link() ->
 
 %%--------------------------------------------------------------------
 %% @doc Fetches the number of received messages from the AMQP queue
-%% @spec get_count() -> {ok, Count}
+%% @spec get_recv_count() -> {ok, Count}
 %% where
 %%   Count = integer()
 %% @end
 %%--------------------------------------------------------------------
 
-get_count() ->
-    gen_server:call(?SERVER, get_count).
+get_recv_count() ->
+    gen_server:call(?SERVER, get_recv_count).
+
+%%--------------------------------------------------------------------
+%% @doc Fetches the number of saved saved records in DB
+%% @spec get_saved_count() -> {ok, Count}
+%% where
+%%   Count = integer()
+%% @end
+%%--------------------------------------------------------------------
+
+get_saved_count() ->
+    gen_server:call(?SERVER, get_saved_count).
 
 %%--------------------------------------------------------------------
 %% @doc Closes channel/connection to AMQP broker and stops the server
@@ -102,8 +111,10 @@ init([]) ->
 %%                                   {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_call(get_count, _From, State) ->
+handle_call(get_recv_count, _From, State) ->
     {reply, {ok, State#state.received_count}, State};
+handle_call(get_saved_count, _From, State) ->
+    {reply, {ok, State#state.saved_count}, State};
 handle_call(_Request, _From, State) ->
     Reply = ok,
     {reply, Reply, State}.
@@ -118,10 +129,17 @@ handle_call(_Request, _From, State) ->
 %%                                  {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_cast({encode_ok, MetaData, Tag}, #state{channel = Channel} = State ) ->    
+handle_cast({encode_ok, SaveRecord, Tag}, 
+	    #state{channel = Channel, saved_count = SavedCount} = State ) ->    
     amqp_channel:cast(Channel, #'basic.ack'{delivery_tag = Tag}),
-    io:format("Date: ~p, Time: ~p, Dest: ~p, CID: ~p~n",MetaData),
-    {noreply, State};
+    case db_store:save(SaveRecord) of
+	{ok, _SavedRecord} ->
+	    io:format("[x] Success, record has been inserted to db~n"),
+	    {noreply, State#state{saved_count = SavedCount + 1}};
+	{error, [ErrorMessages]} ->
+	    io:format("Missed to insert record into DB: ~p~n", [ErrorMessages]),
+	    {noreply, State}
+    end;
 handle_cast({encode_not_ok, Body, Tag}, #state{retries = N} = State ) when N > 0 ->
     supervisor:start_child(encode_sup, [Body, Tag]),
     NewState = State#state{retries = N -1},
